@@ -153,6 +153,13 @@ function _generateRoutes(plugin, next) {
         });
 
         internals.routes.push({
+            method: 'PATCH',
+            path: '/' + key + '/{id}',
+            config: config,
+            handler: _patchHandler(key)
+        });
+
+        internals.routes.push({
             method: 'DELETE',
             path: '/' + key + '/{id}',
             config: config,
