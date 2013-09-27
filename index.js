@@ -54,9 +54,9 @@ function _indexHandler(name) {
     };
 }
 
-function _createHandler(name, model) {
+function _createHandler(name) {
     return function (request) {
-        var item = model.create(request.payload);
+        var item = internals.models[name].create(request.payload);
         var errors = item.doValidate();
         if (errors.length) return request.reply(internals.error.badRequest(errors[0]));
         internals.controller.create(name, request.payload, function (err, item) {
@@ -66,18 +66,17 @@ function _createHandler(name, model) {
     };
 }
 
-function _retrieveHandler(name, model) {
+function _retrieveHandler(name) {
     return function (request) {
         internals.controller.retrieve(name, request.params.id, function (err, object) {
             if (err) return request.reply(internals.error.internalError(err));
             if (!object) return request.reply(internals.error.notFound());
-            var item = internals.models[name].create(object);
-            request.reply(item.toObject());
+            request.reply(object);
         });
     };
 }
 
-function _updateHandler(name, model) {
+function _updateHandler(name) {
     return function (request) {
         var item = internals.models[name].create(request.payload);
         var errors = item.doValidate();
@@ -99,11 +98,9 @@ function _deleteHandler(name) {
 }
 
 function _generateRoutes(plugin, next) {
-    var model;
     var config;
 
     for (var key in internals.models) {
-        model = internals.models[key];
         if (internals.configs[key]) config = internals.configs[key];
 
         // index
@@ -118,21 +115,21 @@ function _generateRoutes(plugin, next) {
             method: 'POST',
             path: '/' + key,
             config: config,
-            handler: _createHandler(key, model)
+            handler: _createHandler(key)
         });
 
         internals.routes.push({
             method: 'GET',
             path: '/' + key + '/{id}',
             config: config,
-            handler: _retrieveHandler(key, model)
+            handler: _retrieveHandler(key)
         });
 
         internals.routes.push({
             method: 'PUT',
             path: '/' + key + '/{id}',
             config: config,
-            handler: _updateHandler(key, model)
+            handler: _updateHandler(key)
         });
 
         internals.routes.push({
