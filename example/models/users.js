@@ -1,5 +1,9 @@
 module.exports = function (VeryModel, VeryValidator, callback) {
     var userdef = {
+        id: {
+            primary: true,
+            type: 'alphanumeric'
+        },
         name: {
             required: true,
             type: 'alphanumeric'

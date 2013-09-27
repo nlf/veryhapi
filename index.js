@@ -4,11 +4,14 @@ var fs = require('fs');
 var path = require('path');
 
 var internals = {
+    error: null,
+    controller: null,
     models: {},
-    configs: {}
+    configs: {},
+    routes: []
 };
 
-function _registerModels(modPath, next) {
+function _registerModels(plugin, modPath, next) {
     var isDir;
     var isJS;
     var fullPath;
@@ -37,12 +40,73 @@ function _registerModels(modPath, next) {
             });
         });
         console.log(require('util').inspect(internals, false, null, true));
-        next();
+        _generateRoutes(plugin, next);
     });
+}
+
+function _indexHandler(name) {
+    return function (request) {
+        internals.controller.index(name, function (err, items) {
+            if (err) return request.reply(internals.error.internalError(err));
+            var reply = {};
+            reply[name] = items;
+            request.reply(reply);
+        });
+    };
+}
+
+function _createHandler(name, model) {
+    return function (request) {
+        var item = model.create(request.payload);
+        var errors = item.doValidate();
+        if (errors.length) return request.reply(internals.error.badRequest(errors[0]));
+        internals.controller.create(name, request.payload, function (err, item) {
+            if (err) return request.reply(internals.error.internalError(err));
+            request.reply(item);
+        });
+    };
+}
+
+function _generateRoutes(plugin, next) {
+    var model;
+    var config;
+
+    for (var key in internals.models) {
+        model = internals.models[key];
+        if (internals.configs[key]) config = internals.configs[key];
+
+        // index
+        internals.routes.push({
+            method: 'GET',
+            path: '/' + key,
+            config: config,
+            handler: _indexHandler(key)
+        });
+
+        internals.routes.push({
+            method: 'POST',
+            path: '/' + key,
+            config: config,
+            handler: _createHandler(key, model)
+        });
+    }
+
+    console.log(require('util').inspect(internals.routes, false, null, true));
+    plugin.route(internals.routes);
+    next();
 }
 
 exports.register = function (plugin, options, next) {
     Hoek.assert(typeof options.models === 'string', 'Models property must be a string');
+    Hoek.assert(typeof options.controller === 'object', 'Controller property must be an object');
+    Hoek.assert(typeof options.controller.index === 'function', 'Controller\'s index property must be a function');
+    Hoek.assert(typeof options.controller.create === 'function', 'Controller\'s create property must be a function');
+    Hoek.assert(typeof options.controller.retrieve === 'function', 'Controller\'s retrieve property must be a function');
+    Hoek.assert(typeof options.controller.update === 'function', 'Controller\'s update property must be a function');
+    Hoek.assert(typeof options.controller.delete === 'function', 'Controller\'s delete property must be a function');
 
-    _registerModels(options.models, next);
+    internals.controller = options.controller;
+    internals.error = plugin.hapi.error;
+
+    _registerModels(plugin, options.models, next);
 };

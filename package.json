@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "hapi": "~1.11.1",
-    "precommit-hook": "~0.3.8"
+    "precommit-hook": "~0.3.8",
+    "hat": "0.0.3"
   }
 }
