@@ -2,6 +2,7 @@ var Hoek = require('hoek');
 var VeryModel = require('verymodel');
 var fs = require('fs');
 var path = require('path');
+var _ = require('lodash');
 
 var internals = {
     error: null,
@@ -56,6 +57,7 @@ function _indexHandler(name) {
 
 function _createHandler(name) {
     return function (request) {
+        if (request.payload.id) return request.reply(internals.error.badRequest('Cannot specify "id" when creating an object'));
         var item = internals.models[name].create(request.payload);
         var errors = item.doValidate();
         if (errors.length) return request.reply(internals.error.badRequest(errors[0]));
@@ -84,6 +86,24 @@ function _updateHandler(name) {
         internals.controller.update(name, request.params.id, request.payload, function (err, item) {
             if (err) return request.reply(internals.error.internalError(err));
             request.reply(item);
+        });
+    };
+}
+
+function _patchHandler(name) {
+    return function (request) {
+        internals.controller.retrieve(name, request.params.id, function (err, object) {
+            if (err) return request.reply(internals.error.internalError(err));
+            if (!object) return request.reply(internals.error.notFound());
+
+            var item = _.merge(object, request.payload);
+            item = internals.models[name].create(item);
+            var errors = item.doValidate();
+            if (errors.length) return request.reply(internals.error.badRequest(errors[0]));
+            internals.controller.update(name, request.params.id, item, function (err, item) {
+                if (err) return request.reply(internals.error.internalError(err));
+                request.reply(item);
+            });
         });
     };
 }
