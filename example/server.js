@@ -24,6 +24,7 @@ var controller = {
         callback(null, data[name][id]);
     },
     update: function (name, id, object, callback) {
+        object.id = id;
         data[name][id] = object;
         callback(null, object);
     },

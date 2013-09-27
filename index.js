@@ -39,7 +39,6 @@ function _registerModels(plugin, modPath, next) {
                 internals.configs[baseName] = config;
             });
         });
-        console.log(require('util').inspect(internals, false, null, true));
         _generateRoutes(plugin, next);
     });
 }
@@ -61,6 +60,38 @@ function _createHandler(name, model) {
         var errors = item.doValidate();
         if (errors.length) return request.reply(internals.error.badRequest(errors[0]));
         internals.controller.create(name, request.payload, function (err, item) {
+            if (err) return request.reply(internals.error.internalError(err));
+            request.reply(item);
+        });
+    };
+}
+
+function _retrieveHandler(name, model) {
+    return function (request) {
+        internals.controller.retrieve(name, request.params.id, function (err, object) {
+            if (err) return request.reply(internals.error.internalError(err));
+            if (!object) return request.reply(internals.error.notFound());
+            var item = internals.models[name].create(object);
+            request.reply(item.toObject());
+        });
+    };
+}
+
+function _updateHandler(name, model) {
+    return function (request) {
+        var item = internals.models[name].create(request.payload);
+        var errors = item.doValidate();
+        if (errors.length) return request.reply(internals.error.badRequest(errors[0]));
+        internals.controller.update(name, request.params.id, request.payload, function (err, item) {
+            if (err) return request.reply(internals.error.internalError(err));
+            request.reply(item);
+        });
+    };
+}
+
+function _deleteHandler(name) {
+    return function (request) {
+        internals.controller.delete(name, request.params.id, function (err, item) {
             if (err) return request.reply(internals.error.internalError(err));
             request.reply(item);
         });
@@ -89,9 +120,29 @@ function _generateRoutes(plugin, next) {
             config: config,
             handler: _createHandler(key, model)
         });
+
+        internals.routes.push({
+            method: 'GET',
+            path: '/' + key + '/{id}',
+            config: config,
+            handler: _retrieveHandler(key, model)
+        });
+
+        internals.routes.push({
+            method: 'PUT',
+            path: '/' + key + '/{id}',
+            config: config,
+            handler: _updateHandler(key, model)
+        });
+
+        internals.routes.push({
+            method: 'DELETE',
+            path: '/' + key + '/{id}',
+            config: config,
+            handler: _deleteHandler(key)
+        });
     }
 
-    console.log(require('util').inspect(internals.routes, false, null, true));
     plugin.route(internals.routes);
     next();
 }
